@@ -431,7 +431,7 @@ class MainWindow(QMainWindow):
             return
 
         try:
-            inserted, skipped = self.db.import_from_dataframe(df)
+            inserted, updated, skipped = self.db.import_from_dataframe(df)
         except ValueError as e:
             QMessageBox.warning(self, "Warning", str(e))
             return
@@ -440,7 +440,13 @@ class MainWindow(QMainWindow):
             return
 
         self._refresh_list()
-        msg = f"{inserted} entries imported."
+        parts = []
+        if inserted:
+            parts.append(f"{inserted} new entries added.")
+        if updated:
+            parts.append(f"{updated} entries updated (imported data was newer).")
         if skipped:
-            msg += f"\n{skipped} entries skipped (already exist or invalid)."
-        QMessageBox.information(self, "Success", msg)
+            parts.append(f"{skipped} entries skipped (up-to-date or no date to compare).")
+        if not parts:
+            parts.append("No changes made.")
+        QMessageBox.information(self, "Import Complete", "\n".join(parts))
