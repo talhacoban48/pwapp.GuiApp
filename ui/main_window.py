@@ -52,14 +52,20 @@ class MainWindow(QMainWindow):
         bar = self.menuBar()
 
         file_menu = bar.addMenu("File")
-        file_menu.addAction("Save as Excel")
-        file_menu.addAction("Save as CSV")
-        file_menu.triggered.connect(self._on_export)
+        file_menu.addAction("Save as Excel").triggered.connect(
+            lambda: self._export_excel()
+        )
+        file_menu.addAction("Save as CSV").triggered.connect(
+            lambda: self._export_csv()
+        )
 
         import_menu = bar.addMenu("Import")
-        import_menu.addAction("Import Excel")
-        import_menu.addAction("Import CSV")
-        import_menu.triggered.connect(self._on_import)
+        import_menu.addAction("Import Excel").triggered.connect(
+            lambda: self._import_excel()
+        )
+        import_menu.addAction("Import CSV").triggered.connect(
+            lambda: self._import_csv()
+        )
 
     # ------------------------------------------------------------------ #
     #  Widgets                                                             #
@@ -121,7 +127,7 @@ class MainWindow(QMainWindow):
         self.delete_btn = _button("Delete", self._on_delete)
 
         # Password generator
-        self.gen_btn         = _button("Generate Password", self._on_generate_password)
+        self.gen_btn         = _button("Generate", self._on_generate_password)
         self.generated_field = _line_edit()
 
     # ------------------------------------------------------------------ #
@@ -199,7 +205,7 @@ class MainWindow(QMainWindow):
         names = [
             "   " + name
             for name, status in rows
-            if self.show_passive or status == "aktif"
+            if self.show_passive or status
         ]
         try:
             names.sort(key=locale.strxfrm)
@@ -214,7 +220,7 @@ class MainWindow(QMainWindow):
             "email":      self.email_field.text().strip(),
             "password":   self.password_field.text().strip(),
             "url":        self.url_field.toPlainText().strip(),
-            "aktifpasif": "aktif" if self.status_cb.isChecked() else "pasif",
+            "recordStatus": self.status_cb.isChecked(),
         }
 
     def _clear_fields(self):
@@ -232,7 +238,7 @@ class MainWindow(QMainWindow):
         self.email_field.setText(entry.get("email") or "")
         self.password_field.setText(entry.get("password") or "")
         self.url_field.setText(entry.get("url") or "")
-        is_active = entry.get("aktifpasif") == "aktif"
+        is_active = entry.get("recordStatus", True)
         self.status_cb.setChecked(is_active)
         self.status_label.setText("Active" if is_active else "Passive")
 
@@ -278,7 +284,7 @@ class MainWindow(QMainWindow):
             f"  Email    : {data['email']}\n"
             f"  Password : {data['password']}\n"
             f"  URL      : {data['url']}\n"
-            f"  Status   : {data['aktifpasif']}",
+            f"  Status   : {'Active' if data['recordStatus'] else 'Passive'}",
             QMessageBox.Yes | QMessageBox.No,
         )
         if answer != QMessageBox.Yes:
@@ -291,7 +297,7 @@ class MainWindow(QMainWindow):
             return
 
         self._refresh_list()
-        if data["aktifpasif"] == "pasif" and not self.show_passive_cb.isChecked():
+        if not data["recordStatus"] and not self.show_passive_cb.isChecked():
             self._clear_fields()
         QMessageBox.information(self, "Success", "Entry added successfully.")
 
@@ -313,7 +319,7 @@ class MainWindow(QMainWindow):
             f"  Email    : {data['email']}\n"
             f"  Password : {data['password']}\n"
             f"  URL      : {data['url']}\n"
-            f"  Status   : {data['aktifpasif']}",
+            f"  Status   : {'Active' if data['recordStatus'] else 'Passive'}",
             QMessageBox.Yes | QMessageBox.No,
         )
         if answer != QMessageBox.Yes:
@@ -326,7 +332,7 @@ class MainWindow(QMainWindow):
             return
 
         self._refresh_list()
-        if data["aktifpasif"] == "pasif" and not self.show_passive_cb.isChecked():
+        if not data["recordStatus"] and not self.show_passive_cb.isChecked():
             self._clear_fields()
         QMessageBox.information(self, "Success", "Entry updated successfully.")
 
@@ -375,60 +381,49 @@ class MainWindow(QMainWindow):
     #  Slots — export / import                                             #
     # ------------------------------------------------------------------ #
 
-    def _on_export(self, action):
-        text = action.text()
-        if text == "Save as Excel":
-            path, _ = QFileDialog.getSaveFileName(
-                self, "Save File", "", "Excel (*.xlsx)"
-            )
-            if path:
-                try:
-                    self.db.export_to_excel(path)
-                    QMessageBox.information(self, "Success", "Exported to Excel.")
-                except Exception as e:
-                    QMessageBox.critical(self, "Error", f"Export failed:\n{e}")
+    def _export_excel(self):
+        path, _ = QFileDialog.getSaveFileName(self, "Save File", "", "Excel (*.xlsx)")
+        if path:
+            try:
+                self.db.export_to_excel(path)
+                QMessageBox.information(self, "Success", "Exported to Excel.")
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                QMessageBox.critical(self, "Error", f"Export failed:\n{e}")
 
-        elif text == "Save as CSV":
-            path, _ = QFileDialog.getSaveFileName(
-                self, "Save File", "", "CSV (*.csv)"
-            )
-            if path:
-                try:
-                    self.db.export_to_csv(path)
-                    QMessageBox.information(self, "Success", "Exported to CSV.")
-                except Exception as e:
-                    QMessageBox.critical(self, "Error", f"Export failed:\n{e}")
+    def _export_csv(self):
+        path, _ = QFileDialog.getSaveFileName(self, "Save File", "", "CSV (*.csv)")
+        if path:
+            try:
+                self.db.export_to_csv(path)
+                QMessageBox.information(self, "Success", "Exported to CSV.")
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                QMessageBox.critical(self, "Error", f"Export failed:\n{e}")
 
-    def _on_import(self, action):
-        text = action.text()
-        df = None
+    def _import_excel(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Open File", "", "Excel (*.xlsx)")
+        if path:
+            try:
+                df = pd.read_excel(path)
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Could not read file:\n{e}")
+                return
+            self._do_import(df)
 
-        if text == "Import Excel":
-            path, _ = QFileDialog.getOpenFileName(
-                self, "Open File", "", "Excel (*.xlsx)"
-            )
-            if path:
-                try:
-                    df = pd.read_excel(path)
-                except Exception as e:
-                    QMessageBox.critical(self, "Error",
-                                         f"Could not read file:\n{e}")
-                    return
+    def _import_csv(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Open File", "", "CSV (*.csv)")
+        if path:
+            try:
+                df = pd.read_csv(path)
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Could not read file:\n{e}")
+                return
+            self._do_import(df)
 
-        elif text == "Import CSV":
-            path, _ = QFileDialog.getOpenFileName(
-                self, "Open File", "", "CSV (*.csv)"
-            )
-            if path:
-                try:
-                    df = pd.read_csv(path)
-                except Exception as e:
-                    QMessageBox.critical(self, "Error",
-                                         f"Could not read file:\n{e}")
-                    return
-
-        if df is None:
-            return
+    def _do_import(self, df):
 
         try:
             inserted, updated, skipped = self.db.import_from_dataframe(df)

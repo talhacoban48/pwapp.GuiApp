@@ -18,7 +18,7 @@ from utils.auth_manager import AuthManager
 from utils.resources import get_resource_path
 
 _FONT = QFont("Times", 11)
-_MIN_PASSWORD_LENGTH = 6
+_MIN_PASSWORD_LENGTH = 4
 
 
 class LoginDialog(QDialog):

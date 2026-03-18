@@ -14,18 +14,22 @@ def _now() -> str:
     return datetime.now().isoformat(timespec="seconds")
 
 
+def _to_status(value) -> int:
+    """Convert True/False/1/0/'1'/'0' to SQLite INTEGER (1 or 0)."""
+    if value is None:
+        return 1
+    s = str(value).strip().lower()
+    return 0 if s in ("false", "0") else 1
+
+
 class DatabaseManager:
 
     COLUMNS = [
         "appname", "username", "email", "password",
-        "url", "aktifpasif", "createdDate", "updatedDate",
+        "url", "recordStatus", "createdDate", "updatedDate",
     ]
 
     def __init__(self, fernet: Fernet):
-        """
-        fernet — the Fernet instance derived from the master password.
-                 Used to encrypt passwords on write and decrypt on read.
-        """
         self.fernet = fernet
 
         basepath = Path(os.path.expanduser("~/pwapp"))
@@ -33,7 +37,6 @@ class DatabaseManager:
         self.db_path = str(basepath / "database.db")
 
         self._create_table()
-        self._migrate_schema()
 
     # ------------------------------------------------------------------ #
     #  Internal helpers                                                    #
@@ -43,62 +46,41 @@ class DatabaseManager:
         return sqlite3.connect(self.db_path)
 
     def _create_table(self):
-        """Create the passwords table if it does not already exist."""
         conn = self._connect()
         try:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS passwords (
-                    appname     TEXT PRIMARY KEY,
-                    username    TEXT,
-                    email       TEXT,
-                    password    TEXT,
-                    url         TEXT,
-                    aktifpasif  TEXT,
-                    createdDate TEXT,
-                    updatedDate TEXT
+                    appname      TEXT    PRIMARY KEY,
+                    username     TEXT,
+                    email        TEXT,
+                    password     TEXT,
+                    url          TEXT,
+                    recordStatus INTEGER NOT NULL DEFAULT 1,
+                    createdDate  TEXT,
+                    updatedDate  TEXT
                 )
             """)
             conn.commit()
         finally:
             conn.close()
 
-    def _migrate_schema(self):
-        """
-        Add createdDate / updatedDate columns to databases created before
-        this feature was introduced.  Safe to call on already-migrated DBs.
-        """
-        conn = self._connect()
-        try:
-            existing_cols = {
-                row[1]
-                for row in conn.execute("PRAGMA table_info(passwords)").fetchall()
-            }
-            for col in ("createdDate", "updatedDate"):
-                if col not in existing_cols:
-                    conn.execute(
-                        f"ALTER TABLE passwords ADD COLUMN {col} TEXT"
-                    )
-            conn.commit()
-        finally:
-            conn.close()
-
     @staticmethod
     def _clean(value) -> str | None:
-        """Return None for the string literal 'None' or for None/empty values."""
         if value is None:
             return None
         s = str(value)
         return None if s in ("None", "nan", "") else s
 
     def _row_to_dict(self, row: tuple) -> dict:
-        """Convert a DB row tuple to a dict, cleaning nulls and decrypting password."""
         d = {k: self._clean(v) for k, v in zip(self.COLUMNS, row)}
         if d["password"]:
             d["password"] = decrypt(d["password"], self.fernet)
+        rs = d.get("recordStatus")
+        d["recordStatus"] = bool(int(rs)) if rs is not None else True
         return d
 
     # ------------------------------------------------------------------ #
-    #  Migration                                                           #
+    #  Encryption migration (first-run only)                              #
     # ------------------------------------------------------------------ #
 
     def migrate_to_encrypted(self):
@@ -111,7 +93,6 @@ class DatabaseManager:
             rows = conn.execute(
                 "SELECT appname, password FROM passwords"
             ).fetchall()
-
             changed = 0
             for appname, password in rows:
                 if password and not looks_encrypted(password):
@@ -120,7 +101,6 @@ class DatabaseManager:
                         (encrypt(password, self.fernet), appname)
                     )
                     changed += 1
-
             if changed:
                 conn.commit()
         except Exception:
@@ -130,21 +110,21 @@ class DatabaseManager:
             conn.close()
 
     # ------------------------------------------------------------------ #
-    #  Read operations                                                     #
+    #  Read                                                                #
     # ------------------------------------------------------------------ #
 
     def get_all(self) -> list[tuple]:
-        """Return list of (appname, aktifpasif) tuples for all entries."""
+        """Return list of (appname, recordStatus) tuples; recordStatus is int 0 or 1."""
         conn = self._connect()
         try:
             return conn.execute(
-                "SELECT appname, aktifpasif FROM passwords"
+                "SELECT appname, recordStatus FROM passwords"
             ).fetchall()
         finally:
             conn.close()
 
     def get_one(self, appname: str) -> dict | None:
-        """Return a dict (with decrypted password) for the given appname."""
+        """Return a dict (decrypted password, bool recordStatus) or None."""
         conn = self._connect()
         try:
             row = conn.execute(
@@ -165,17 +145,17 @@ class DatabaseManager:
         return row is not None
 
     # ------------------------------------------------------------------ #
-    #  Write operations                                                    #
+    #  Write                                                               #
     # ------------------------------------------------------------------ #
 
     def insert(self, appname: str, username: str, email: str,
-               password: str, url: str, aktifpasif: str):
+               password: str, url: str, recordStatus: bool):
         now = _now()
         conn = self._connect()
         try:
             conn.execute(
                 "INSERT INTO passwords "
-                "(appname, username, email, password, url, aktifpasif, createdDate, updatedDate) "
+                "(appname, username, email, password, url, recordStatus, createdDate, updatedDate) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     appname,
@@ -183,9 +163,8 @@ class DatabaseManager:
                     self._clean(email),
                     encrypt(password, self.fernet),
                     self._clean(url),
-                    aktifpasif,
-                    now,
-                    now,
+                    int(recordStatus),
+                    now, None,
                 )
             )
             conn.commit()
@@ -196,19 +175,19 @@ class DatabaseManager:
             conn.close()
 
     def update(self, appname: str, username: str, email: str,
-               password: str, url: str, aktifpasif: str):
+               password: str, url: str, recordStatus: bool):
         conn = self._connect()
         try:
             conn.execute(
                 "UPDATE passwords "
-                "SET username=?, email=?, password=?, url=?, aktifpasif=?, updatedDate=? "
+                "SET username=?, email=?, password=?, url=?, recordStatus=?, updatedDate=? "
                 "WHERE appname=?",
                 (
                     self._clean(username),
                     self._clean(email),
                     encrypt(password, self.fernet),
                     self._clean(url),
-                    aktifpasif,
+                    int(recordStatus),
                     _now(),
                     appname,
                 )
@@ -238,34 +217,33 @@ class DatabaseManager:
     # ------------------------------------------------------------------ #
 
     def export_to_excel(self, filepath: str):
-        """Export all entries with DECRYPTED passwords to Excel."""
         self._to_dataframe().to_excel(filepath, index=False)
 
     def export_to_csv(self, filepath: str):
-        """Export all entries with DECRYPTED passwords to CSV."""
         self._to_dataframe().to_csv(filepath, index=False)
 
     def import_from_dataframe(self, df: pd.DataFrame) -> tuple[int, int, int]:
         """
         Merge rows from df into the database.
 
-        - New entries (appname not in DB)  → INSERT with createdDate = now
-        - Existing entries:
-            * File has 'updatedDate' column AND imported date > DB date → UPDATE
-            * Otherwise                                                  → skip
+        Required columns: appname, username, email, password, url, recordStatus
+        Optional columns: createdDate, updatedDate (used for merge conflict resolution)
 
-        Passwords from the file are treated as plaintext and re-encrypted.
+        - New entries                               → INSERT
+        - Existing + imported updatedDate is newer → UPDATE
+        - Existing + no date / older date           → skip
 
         Returns (inserted_count, updated_count, skipped_count).
-        Raises ValueError if required core columns are missing.
         """
-        core_columns = [c for c in self.COLUMNS if c not in ("createdDate", "updatedDate")]
-        missing = [c for c in core_columns if c not in df.columns]
+        required = ["appname", "username", "email", "password", "url", "recordStatus"]
+        missing = [c for c in required if c not in df.columns]
         if missing:
             raise ValueError(
                 f"Missing columns: {', '.join(missing)}\n"
-                f"Required columns: {', '.join(core_columns)}"
+                f"Required: {', '.join(required)}"
             )
+
+        status_col = "recordStatus"
 
         has_updated_date = "updatedDate" in df.columns
         has_created_date = "createdDate" in df.columns
@@ -279,11 +257,8 @@ class DatabaseManager:
                     skipped += 1
                     continue
 
-                aktifpasif = self._clean(str(row["aktifpasif"]))
-                if aktifpasif not in ("aktif", "pasif"):
-                    aktifpasif = "aktif"
-
-                raw_password = self._clean(str(row["password"])) or ""
+                record_status = _to_status(row[status_col])
+                raw_password  = self._clean(str(row["password"])) or ""
 
                 db_row = conn.execute(
                     "SELECT updatedDate FROM passwords WHERE appname = ?",
@@ -291,17 +266,16 @@ class DatabaseManager:
                 ).fetchone()
 
                 if db_row is None:
-                    # New entry — INSERT
                     created = (
                         self._clean(str(row["createdDate"])) if has_created_date else None
                     ) or _now()
                     updated_dt = (
                         self._clean(str(row["updatedDate"])) if has_updated_date else None
-                    ) or _now()
+                    )
 
                     conn.execute(
                         "INSERT INTO passwords "
-                        "(appname, username, email, password, url, aktifpasif, createdDate, updatedDate) "
+                        "(appname, username, email, password, url, recordStatus, createdDate, updatedDate) "
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                         (
                             appname,
@@ -309,7 +283,7 @@ class DatabaseManager:
                             self._clean(str(row["email"])),
                             encrypt(raw_password, self.fernet),
                             self._clean(str(row["url"])),
-                            aktifpasif,
+                            record_status,
                             created,
                             updated_dt,
                         )
@@ -317,31 +291,26 @@ class DatabaseManager:
                     inserted += 1
 
                 else:
-                    # Existing entry — update only if imported data is newer
-                    db_updated_date = db_row[0]  # may be None for old rows
+                    db_updated_date       = db_row[0]
                     imported_updated_date = (
                         self._clean(str(row["updatedDate"])) if has_updated_date else None
                     )
-
                     is_newer = (
                         imported_updated_date is not None
-                        and (
-                            db_updated_date is None
-                            or imported_updated_date > db_updated_date
-                        )
+                        and (db_updated_date is None or imported_updated_date > db_updated_date)
                     )
 
                     if is_newer:
                         conn.execute(
                             "UPDATE passwords "
-                            "SET username=?, email=?, password=?, url=?, aktifpasif=?, updatedDate=? "
+                            "SET username=?, email=?, password=?, url=?, recordStatus=?, updatedDate=? "
                             "WHERE appname=?",
                             (
                                 self._clean(str(row["username"])),
                                 self._clean(str(row["email"])),
                                 encrypt(raw_password, self.fernet),
                                 self._clean(str(row["url"])),
-                                aktifpasif,
+                                record_status,
                                 imported_updated_date,
                                 appname,
                             )
@@ -360,7 +329,6 @@ class DatabaseManager:
         return inserted, updated, skipped
 
     def _to_dataframe(self) -> pd.DataFrame:
-        """Return all rows as a DataFrame with DECRYPTED passwords."""
         conn = self._connect()
         try:
             rows = conn.execute("SELECT * FROM passwords").fetchall()
