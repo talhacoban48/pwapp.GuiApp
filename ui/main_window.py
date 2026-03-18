@@ -195,6 +195,12 @@ class MainWindow(QMainWindow):
 
         self.status_label = QLabel("Active")
 
+        # Date info labels (read-only)
+        self.created_date_lbl = QLabel("—")
+        self.created_date_lbl.setObjectName("dateLabel")
+        self.updated_date_lbl = QLabel("—")
+        self.updated_date_lbl.setObjectName("dateLabel")
+
         # Action buttons
         self.clear_btn  = _button("Clear",  self._on_clear)
         self.insert_btn = _button("Insert", self._on_insert)
@@ -280,6 +286,9 @@ class MainWindow(QMainWindow):
         right_layout.addLayout(make_field_row("Password :",  self.password_field, self.password_copy_btn))
         right_layout.addLayout(make_field_row("Extra Information :",       self.url_field,      self.url_copy_btn))
         right_layout.addLayout(make_field_row("Status :",    self.status_cb, self.status_label))
+        right_layout.addSpacing(8)
+        right_layout.addLayout(make_field_row("Created :",   self.created_date_lbl))
+        right_layout.addLayout(make_field_row("Updated :",   self.updated_date_lbl))
         right_layout.addSpacing(20)
         right_layout.addLayout(button_row)
         right_layout.addSpacing(10)
@@ -330,6 +339,17 @@ class MainWindow(QMainWindow):
             "recordStatus": self.status_cb.isChecked(),
         }
 
+    @staticmethod
+    def _fmt_date(value: str | None) -> str:
+        if not value:
+            return "—"
+        try:
+            from datetime import datetime
+            dt = datetime.fromisoformat(value)
+            return dt.strftime("%d %b %Y,  %H:%M")
+        except Exception:
+            return value
+
     def _clear_fields(self):
         for field in (self.app_name_field, self.username_field,
                       self.email_field, self.password_field,
@@ -338,6 +358,8 @@ class MainWindow(QMainWindow):
         self.url_field.clear()
         self.status_cb.setChecked(True)
         self.status_label.setText("Active")
+        self.created_date_lbl.setText("—")
+        self.updated_date_lbl.setText("—")
 
     def _populate_fields(self, entry: dict):
         self.app_name_field.setText(entry.get("appname") or "")
@@ -348,6 +370,8 @@ class MainWindow(QMainWindow):
         is_active = entry.get("recordStatus", True)
         self.status_cb.setChecked(is_active)
         self.status_label.setText("Active" if is_active else "Passive")
+        self.created_date_lbl.setText(self._fmt_date(entry.get("createdDate")))
+        self.updated_date_lbl.setText(self._fmt_date(entry.get("updatedDate")))
 
     # ------------------------------------------------------------------ #
     #  Slots — list interaction                                            #

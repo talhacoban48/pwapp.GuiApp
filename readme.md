@@ -59,14 +59,49 @@ All data is stored under `~/pwapp/` (your home directory):
 
 ---
 
-## Building an executable
+## Building an installer
+
+### Prerequisites
+
+| Tool | Purpose | Download |
+|---|---|---|
+| Python 3.10+ | Run the app / build tools | [python.org](https://www.python.org/downloads/) |
+| PyInstaller | Package app into a single `.exe` | `pip install pyinstaller` |
+| Inno Setup 6 | Create the Windows installer | [jrsoftware.org/isinfo.php](https://jrsoftware.org/isinfo.php) |
+
+### Steps
+
+**1. Install Python dependencies**
 
 ```bash
-pyinstaller --onefile --windowed --icon=assets/favicon.ico \
-  --add-data "assets;assets" main.py
+pip install -r requirements.txt
 ```
 
-The resulting `.exe` will be in the `dist/` folder.
+**2. Build the executable**
+
+```bash
+pyinstaller pwapp.spec --clean --noconfirm
+```
+
+Output: `dist\PasswordManager.exe`
+
+**3. Build the installer**
+
+```powershell
+& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+```
+
+Output: `installer_output\PasswordManagerSetup_1.0.0.exe`
+
+### One-step build (Windows)
+
+Runs both steps automatically:
+
+```bash
+build.bat
+```
+
+> Inno Setup must be installed before running `build.bat`.
 
 ---
 

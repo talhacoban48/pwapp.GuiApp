@@ -1,0 +1,87 @@
+DATA RESPONSIBILITY DISCLAIMER
+Password Manager - Version 1.0.0
+================================================================================
+
+PLEASE READ THIS DISCLAIMER CAREFULLY BEFORE INSTALLING OR USING THIS SOFTWARE.
+
+BY PROCEEDING WITH THE INSTALLATION, YOU ACKNOWLEDGE THAT YOU HAVE READ,
+UNDERSTOOD, AND AGREE TO THE TERMS SET FORTH IN THIS DISCLAIMER.
+
+--------------------------------------------------------------------------------
+1. YOUR DATA IS YOUR RESPONSIBILITY
+--------------------------------------------------------------------------------
+
+This application stores your passwords locally on your computer, encrypted with
+a master password that only you know. The developers of this software have no
+access to your data at any time.
+
+You are solely responsible for:
+
+  - Remembering your master password. There is NO password recovery mechanism.
+    If you forget your master password, your encrypted data CANNOT be recovered
+    under any circumstances.
+
+  - Backing up your data files. Your database is stored at:
+
+        %USERPROFILE%\pwapp\pwapp.db
+        %USERPROFILE%\pwapp\auth.json
+
+    We strongly recommend keeping regular backups of these files in a secure
+    location. Loss of these files means permanent loss of your stored passwords.
+
+  - The security of your computer. If an unauthorized person gains access to
+    your computer and your master password, all stored passwords will be
+    compromised. Always lock your screen when leaving your device unattended.
+
+--------------------------------------------------------------------------------
+2. NO WARRANTY
+--------------------------------------------------------------------------------
+
+This software is provided "AS IS", without warranty of any kind, express or
+implied, including but not limited to the warranties of merchantability, fitness
+for a particular purpose, and non-infringement.
+
+The developers make no representations or warranties regarding:
+
+  - The accuracy, completeness, or reliability of the software.
+  - The continued availability or maintenance of the software.
+  - The compatibility of the software with future operating system versions.
+
+--------------------------------------------------------------------------------
+3. LIMITATION OF LIABILITY
+--------------------------------------------------------------------------------
+
+To the maximum extent permitted by applicable law, in no event shall the
+developers or contributors be liable for any direct, indirect, incidental,
+special, exemplary, or consequential damages, including but not limited to:
+
+  - Loss of data, passwords, or access to accounts.
+  - Financial losses arising from compromised credentials.
+  - Business interruption or loss of profits.
+  - Any other pecuniary or personal harm.
+
+This limitation applies regardless of the cause of action, whether in contract,
+tort, negligence, strict liability, or any other legal theory, even if the
+developers have been advised of the possibility of such damages.
+
+--------------------------------------------------------------------------------
+4. SECURITY BEST PRACTICES
+--------------------------------------------------------------------------------
+
+To maximize the security of your stored passwords, we recommend:
+
+  - Use a strong, unique master password of at least 12 characters.
+  - Do not share your master password with anyone.
+  - Store a backup of your database files in an encrypted, secure location.
+  - Keep your operating system and antivirus software up to date.
+  - Do not install this software on shared or public computers.
+
+--------------------------------------------------------------------------------
+5. ACCEPTANCE
+--------------------------------------------------------------------------------
+
+By clicking "Next" and continuing with the installation, you confirm that you
+have read this disclaimer in its entirety and accept full responsibility for the
+management, security, and backup of your data.
+
+================================================================================
