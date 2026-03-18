@@ -17,7 +17,7 @@ from cryptography.fernet import Fernet
 from utils.auth_manager import AuthManager
 from utils.resources import get_resource_path
 
-_FONT = QFont("Times", 11)
+_FONT = QFont("Segoe UI", 11)
 _MIN_PASSWORD_LENGTH = 4
 
 
@@ -60,7 +60,7 @@ class LoginDialog(QDialog):
         layout.setContentsMargins(30, 24, 30, 24)
 
         title = QLabel("Enter your master password")
-        title.setFont(QFont("Times", 13))
+        title.setFont(QFont("Segoe UI", 13))
         title.setAlignment(Qt.AlignCenter)
         layout.addWidget(title)
 
@@ -94,7 +94,7 @@ class LoginDialog(QDialog):
         layout.setContentsMargins(30, 24, 30, 24)
 
         title = QLabel("Welcome! Create a master password.")
-        title.setFont(QFont("Times", 13))
+        title.setFont(QFont("Segoe UI", 13))
         title.setAlignment(Qt.AlignCenter)
         layout.addWidget(title)
 
@@ -102,7 +102,7 @@ class LoginDialog(QDialog):
             "This password protects all your stored passwords.\n"
             "If you forget it, your data cannot be recovered."
         )
-        note.setFont(QFont("Times", 10))
+        note.setFont(QFont("Segoe UI", 10))
         note.setAlignment(Qt.AlignCenter)
         note.setWordWrap(True)
         layout.addWidget(note)

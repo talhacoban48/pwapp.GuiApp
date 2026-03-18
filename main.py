@@ -1,36 +1,23 @@
 import sys
-import locale
+
 from pathlib import Path
 
 from PyQt5.QtWidgets import QApplication, QDialog
+from PyQt5.QtGui import QFont
 
 from ui.login_dialog import LoginDialog
 from ui.main_window import MainWindow
+from ui.style import get_stylesheet
 from utils.auth_manager import AuthManager
+from utils.local_manager import setup_locale
 
-
-def _setup_locale():
-    """
-    Try to set Turkish locale for correct alphabetical sorting (locale.strxfrm).
-    Tries platform-specific names; silently skips if unavailable.
-    """
-    candidates = [
-        "Turkish_Turkey.1254",  # Windows
-        "tr_TR.UTF-8",          # Linux / macOS
-        "tr_TR.utf8",
-        "tr_TR",
-    ]
-    for name in candidates:
-        try:
-            locale.setlocale(locale.LC_ALL, name)
-            return
-        except locale.Error:
-            continue
 
 
 def main():
-    _setup_locale()
+    setup_locale()
     app = QApplication(sys.argv)
+    app.setFont(QFont("Segoe UI", 10))
+    app.setStyleSheet(get_stylesheet())
 
     basepath = Path.home() / "pwapp"
     basepath.mkdir(parents=True, exist_ok=True)

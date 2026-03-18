@@ -13,7 +13,7 @@ from PyQt5.QtCore import Qt
 from utils.auth_manager import AuthManager
 from utils.resources import get_resource_path
 
-_FONT = QFont("Times", 11)
+_FONT = QFont("Segoe UI", 11)
 _MIN_PASSWORD_LENGTH = 4
 
 
@@ -38,7 +38,7 @@ class ChangePasswordDialog(QDialog):
         layout.setContentsMargins(30, 24, 30, 24)
 
         title = QLabel("Change Master Password")
-        title.setFont(QFont("Times", 13))
+        title.setFont(QFont("Segoe UI", 13))
         title.setAlignment(Qt.AlignCenter)
         layout.addWidget(title)
 

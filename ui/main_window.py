@@ -8,15 +8,20 @@ from PyQt5.QtWidgets import (
     QLabel,
     QLineEdit,
     QPushButton,
+    QSizePolicy,
     QTextEdit,
     QVBoxLayout,
     QHBoxLayout,
     QGroupBox,
+    QWidget,
+    QAction,
+    QApplication,
     QMessageBox,
     QFileDialog,
     QCheckBox,
 )
-from PyQt5.QtGui import QIcon, QFont
+from PyQt5.QtGui import QIcon, QPixmap, QPainter, QColor, QPen
+from PyQt5.QtCore import Qt, QRect
 from cryptography.fernet import Fernet
 
 from database.db_manager import DatabaseManager
@@ -79,6 +84,13 @@ class MainWindow(QMainWindow):
 
         # Settings
         settings_menu = bar.addMenu("Settings")
+
+        self.show_passive_action = settings_menu.addAction("Show Passive Entries")
+        self.show_passive_action.setCheckable(True)
+        self.show_passive_action.setChecked(False)
+        self.show_passive_action.triggered.connect(self._on_toggle_passive)
+
+        settings_menu.addSeparator()
         settings_menu.addAction("Change Master Password").triggered.connect(
             self._on_change_password
         )
@@ -88,36 +100,59 @@ class MainWindow(QMainWindow):
         help_menu.addAction("About").triggered.connect(self._show_about)
 
     # ------------------------------------------------------------------ #
+    #  Helpers                                                             #
+    # ------------------------------------------------------------------ #
+
+    @staticmethod
+    def _make_copy_icon() -> QIcon:
+        px = QPixmap(16, 16)
+        px.fill(Qt.transparent)
+        p = QPainter(px)
+        p.setRenderHint(QPainter.Antialiasing)
+        pen = QPen(QColor("#8b97b8"))
+        pen.setWidthF(1.3)
+        p.setPen(pen)
+        p.setBrush(Qt.NoBrush)
+        p.drawRect(QRect(1, 4, 8, 9))   # back page
+        p.drawRect(QRect(5, 1, 8, 9))   # front page
+        p.end()
+        return QIcon(px)
+
+    def _add_copy_action(self, field: QLineEdit):
+        action = QAction(self._make_copy_icon(), "", field)
+        action.setToolTip("Copy")
+        action.triggered.connect(
+            lambda: QApplication.clipboard().setText(field.text())
+        )
+        field.addAction(action, QLineEdit.TrailingPosition)
+
+    # ------------------------------------------------------------------ #
     #  Widgets                                                             #
     # ------------------------------------------------------------------ #
 
     def _build_widgets(self):
-        font = QFont("Times", 10)
 
-        def _line_edit(min_w=275, min_h=40) -> QLineEdit:
+        def _line_edit(min_w=275, max_w=420, min_h=38) -> QLineEdit:
             w = QLineEdit()
-            w.setFont(font)
             w.setMinimumWidth(min_w)
+            w.setMaximumWidth(max_w)
             w.setMinimumHeight(min_h)
             return w
 
-        def _button(text: str, handler, min_w=100, min_h=40) -> QPushButton:
+        def _button(text: str, handler, min_w=100, min_h=38) -> QPushButton:
             b = QPushButton(text)
-            b.setFont(font)
             b.setMinimumWidth(min_w)
             b.setMinimumHeight(min_h)
             b.clicked.connect(handler)
             return b
 
         # Left panel
-        self.show_passive_cb = QCheckBox("Show passive entries")
-        self.show_passive_cb.setFont(QFont("Times", 11))
-        self.show_passive_cb.clicked.connect(self._on_toggle_passive)
-
         self.entries_list = QListWidget()
-        self.entries_list.setMinimumHeight(500)
+        self.entries_list.setMinimumHeight(200)
         self.entries_list.setMinimumWidth(200)
-        self.entries_list.setFont(QFont("Times", 11))
+        self.entries_list.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Expanding
+        )
         self.entries_list.mouseDoubleClickEvent = self._on_open_entry
 
         # Right panel — input fields
@@ -125,30 +160,46 @@ class MainWindow(QMainWindow):
         self.username_field = _line_edit()
         self.email_field    = _line_edit()
         self.password_field = _line_edit()
+        for f in (self.app_name_field, self.username_field,
+                  self.email_field, self.password_field):
+            self._add_copy_action(f)
 
         self.url_field = QTextEdit()
-        self.url_field.setFont(font)
         self.url_field.setMinimumWidth(275)
-        self.url_field.setMaximumHeight(120)
+        self.url_field.setMaximumWidth(420)
+        self.url_field.setMaximumHeight(150)
+
+        self.url_copy_btn = QPushButton("⎘")
+        self.url_copy_btn.setFixedSize(26, 26)
+        self.url_copy_btn.setToolTip("Copy URL")
+        self.url_copy_btn.setObjectName("urlCopyBtn")
+        self.url_copy_btn.clicked.connect(
+            lambda: QApplication.clipboard().setText(
+                self.url_field.toPlainText()
+            )
+        )
 
         # Active / Passive toggle
         self.status_cb = QCheckBox()
-        self.status_cb.setFont(font)
         self.status_cb.setChecked(True)
         self.status_cb.clicked.connect(self._on_status_toggled)
 
         self.status_label = QLabel("Active")
-        self.status_label.setFont(font)
 
         # Action buttons
         self.clear_btn  = _button("Clear",  self._on_clear)
         self.insert_btn = _button("Insert", self._on_insert)
         self.update_btn = _button("Update", self._on_update)
         self.delete_btn = _button("Delete", self._on_delete)
+        self.clear_btn.setProperty("role", "clear")
+        self.insert_btn.setProperty("role", "insert")
+        self.update_btn.setProperty("role", "update")
+        self.delete_btn.setProperty("role", "delete")
 
         # Password generator
         self.gen_btn         = _button("Generate", self._on_generate_password)
         self.generated_field = _line_edit()
+        self.gen_btn.setProperty("role", "generate")
 
     # ------------------------------------------------------------------ #
     #  Layout                                                              #
@@ -157,21 +208,15 @@ class MainWindow(QMainWindow):
     def _build_layout(self):
         # --- Left group -----------------------------------------------
         left_group = QGroupBox("Apps / Sites")
-
-        top_bar = QHBoxLayout()
-        top_bar.addStretch()
-        top_bar.addWidget(self.show_passive_cb)
-        top_bar.addStretch()
+        left_group.setObjectName("leftPanel")
 
         left_layout = QVBoxLayout()
-        left_layout.addStretch()
-        left_layout.addLayout(top_bar)
         left_layout.addWidget(self.entries_list)
-        left_layout.addStretch()
         left_group.setLayout(left_layout)
 
         # --- Right group ----------------------------------------------
         right_group = QGroupBox("Entry Details")
+        right_group.setObjectName("rightPanel")
         right_layout = QVBoxLayout()
 
         button_row = QHBoxLayout()
@@ -196,7 +241,7 @@ class MainWindow(QMainWindow):
         right_layout.addLayout(make_field_row("User Name :", self.username_field))
         right_layout.addLayout(make_field_row("Email :",     self.email_field))
         right_layout.addLayout(make_field_row("Password :",  self.password_field))
-        right_layout.addLayout(make_field_row("URL :",       self.url_field))
+        right_layout.addLayout(make_field_row("URL :",       self.url_field, self.url_copy_btn))
         right_layout.addLayout(make_field_row("Status :",    self.status_cb, self.status_label))
         right_layout.addSpacing(20)
         right_layout.addLayout(button_row)
@@ -211,7 +256,7 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(left_group, 45)
         main_layout.addWidget(right_group, 55)
 
-        container = QGroupBox()
+        container = QWidget()
         container.setLayout(main_layout)
         self.setCentralWidget(container)
 
@@ -267,7 +312,7 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------ #
 
     def _on_toggle_passive(self):
-        self.show_passive = self.show_passive_cb.isChecked()
+        self.show_passive = self.show_passive_action.isChecked()
         self._refresh_list()
 
     def _on_open_entry(self, event):
@@ -317,7 +362,7 @@ class MainWindow(QMainWindow):
             return
 
         self._refresh_list()
-        if not data["recordStatus"] and not self.show_passive_cb.isChecked():
+        if not data["recordStatus"] and not self.show_passive_action.isChecked():
             self._clear_fields()
         QMessageBox.information(self, "Success", "Entry added successfully.")
 
@@ -352,7 +397,7 @@ class MainWindow(QMainWindow):
             return
 
         self._refresh_list()
-        if not data["recordStatus"] and not self.show_passive_cb.isChecked():
+        if not data["recordStatus"] and not self.show_passive_action.isChecked():
             self._clear_fields()
         QMessageBox.information(self, "Success", "Entry updated successfully.")
 

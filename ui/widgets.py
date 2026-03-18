@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import QHBoxLayout, QLabel
 from PyQt5.QtGui import QFont
 
-_LABEL_FONT = QFont("Times", 10)
+_LABEL_FONT = QFont("Segoe UI", 10)
 
 
 def make_field_row(label_text: str, *field_widgets) -> QHBoxLayout:
