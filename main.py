@@ -1,9 +1,12 @@
 import sys
 import locale
+from pathlib import Path
 
-from PyQt5.QtWidgets import QApplication
+from PyQt5.QtWidgets import QApplication, QDialog
 
+from ui.login_dialog import LoginDialog
 from ui.main_window import MainWindow
+from utils.auth_manager import AuthManager
 
 
 def _setup_locale():
@@ -28,7 +31,19 @@ def _setup_locale():
 def main():
     _setup_locale()
     app = QApplication(sys.argv)
-    window = MainWindow()
+
+    basepath = Path.home() / "pwapp"
+    basepath.mkdir(parents=True, exist_ok=True)
+
+    auth = AuthManager(basepath)
+    first_run = not auth.is_configured()
+
+    dialog = LoginDialog(auth)
+    if dialog.exec_() != QDialog.Accepted:
+        sys.exit(0)
+
+    fernet = dialog.fernet
+    window = MainWindow(fernet=fernet, first_run=first_run)
     sys.exit(app.exec_())
 
 

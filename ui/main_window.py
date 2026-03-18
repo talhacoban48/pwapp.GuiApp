@@ -16,6 +16,7 @@ from PyQt5.QtWidgets import (
     QCheckBox,
 )
 from PyQt5.QtGui import QIcon, QFont
+from cryptography.fernet import Fernet
 
 from database.db_manager import DatabaseManager
 from utils.password_gen import generate_password
@@ -25,10 +26,12 @@ from ui.widgets import make_field_row
 
 class MainWindow(QMainWindow):
 
-    def __init__(self):
+    def __init__(self, fernet: Fernet, first_run: bool = False):
         super().__init__()
 
-        self.db = DatabaseManager()
+        self.db = DatabaseManager(fernet=fernet)
+        if first_run:
+            self.db.migrate_to_encrypted()
         self.show_passive = False
 
         self.setWindowTitle("Password Manager")
