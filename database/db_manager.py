@@ -1,9 +1,10 @@
+import csv
 import sqlite3
 import os
 from datetime import datetime
 from pathlib import Path
 
-import pandas as pd
+import openpyxl
 from cryptography.fernet import Fernet
 
 from utils.crypto import encrypt, decrypt, looks_encrypted
@@ -217,17 +218,27 @@ class DatabaseManager:
     # ------------------------------------------------------------------ #
 
     def export_to_excel(self, filepath: str):
-        self._to_dataframe().to_excel(filepath, index=False)
+        rows = self._get_all_rows()
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(self.COLUMNS)
+        for row in rows:
+            ws.append([row.get(c) for c in self.COLUMNS])
+        wb.save(filepath)
 
     def export_to_csv(self, filepath: str):
-        self._to_dataframe().to_csv(filepath, index=False)
+        rows = self._get_all_rows()
+        with open(filepath, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=self.COLUMNS)
+            writer.writeheader()
+            writer.writerows(rows)
 
-    def import_from_dataframe(self, df: pd.DataFrame) -> tuple[int, int, int]:
+    def import_from_rows(self, rows: list[dict]) -> tuple[int, int, int]:
         """
-        Merge rows from df into the database.
+        Merge rows into the database.
 
-        Required columns: appname, username, email, password, url, recordStatus
-        Optional columns: createdDate, updatedDate (used for merge conflict resolution)
+        Required keys: appname, username, email, password, url, recordStatus
+        Optional keys: createdDate, updatedDate (used for merge conflict resolution)
 
         - New entries                               → INSERT
         - Existing + imported updatedDate is newer → UPDATE
@@ -236,29 +247,25 @@ class DatabaseManager:
         Returns (inserted_count, updated_count, skipped_count).
         """
         required = ["appname", "username", "email", "password", "url", "recordStatus"]
-        missing = [c for c in required if c not in df.columns]
-        if missing:
-            raise ValueError(
-                f"Missing columns: {', '.join(missing)}\n"
-                f"Required: {', '.join(required)}"
-            )
-
-        status_col = "recordStatus"
-
-        has_updated_date = "updatedDate" in df.columns
-        has_created_date = "createdDate" in df.columns
+        if rows:
+            missing = [c for c in required if c not in rows[0]]
+            if missing:
+                raise ValueError(
+                    f"Missing columns: {', '.join(missing)}\n"
+                    f"Required: {', '.join(required)}"
+                )
 
         inserted = updated = skipped = 0
         conn = self._connect()
         try:
-            for _, row in df.iterrows():
-                appname = self._clean(str(row["appname"]))
+            for row in rows:
+                appname = self._clean(str(row.get("appname", "")))
                 if appname is None:
                     skipped += 1
                     continue
 
-                record_status = _to_status(row[status_col])
-                raw_password  = self._clean(str(row["password"])) or ""
+                record_status = _to_status(row.get("recordStatus"))
+                raw_password  = self._clean(str(row.get("password", ""))) or ""
 
                 db_row = conn.execute(
                     "SELECT updatedDate FROM passwords WHERE appname = ?",
@@ -266,12 +273,8 @@ class DatabaseManager:
                 ).fetchone()
 
                 if db_row is None:
-                    created = (
-                        self._clean(str(row["createdDate"])) if has_created_date else None
-                    ) or _now()
-                    updated_dt = (
-                        self._clean(str(row["updatedDate"])) if has_updated_date else None
-                    )
+                    created = self._clean(str(row.get("createdDate", ""))) or _now()
+                    updated_dt = self._clean(str(row.get("updatedDate", "")))
 
                     conn.execute(
                         "INSERT INTO passwords "
@@ -279,10 +282,10 @@ class DatabaseManager:
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                         (
                             appname,
-                            self._clean(str(row["username"])),
-                            self._clean(str(row["email"])),
+                            self._clean(str(row.get("username", ""))),
+                            self._clean(str(row.get("email", ""))),
                             encrypt(raw_password, self.fernet),
-                            self._clean(str(row["url"])),
+                            self._clean(str(row.get("url", ""))),
                             record_status,
                             created,
                             updated_dt,
@@ -292,9 +295,7 @@ class DatabaseManager:
 
                 else:
                     db_updated_date       = db_row[0]
-                    imported_updated_date = (
-                        self._clean(str(row["updatedDate"])) if has_updated_date else None
-                    )
+                    imported_updated_date = self._clean(str(row.get("updatedDate", "")))
                     is_newer = (
                         imported_updated_date is not None
                         and (db_updated_date is None or imported_updated_date > db_updated_date)
@@ -306,10 +307,10 @@ class DatabaseManager:
                             "SET username=?, email=?, password=?, url=?, recordStatus=?, updatedDate=? "
                             "WHERE appname=?",
                             (
-                                self._clean(str(row["username"])),
-                                self._clean(str(row["email"])),
+                                self._clean(str(row.get("username", ""))),
+                                self._clean(str(row.get("email", ""))),
                                 encrypt(raw_password, self.fernet),
-                                self._clean(str(row["url"])),
+                                self._clean(str(row.get("url", ""))),
                                 record_status,
                                 imported_updated_date,
                                 appname,
@@ -328,11 +329,10 @@ class DatabaseManager:
 
         return inserted, updated, skipped
 
-    def _to_dataframe(self) -> pd.DataFrame:
+    def _get_all_rows(self) -> list[dict]:
         conn = self._connect()
         try:
             rows = conn.execute("SELECT * FROM passwords").fetchall()
         finally:
             conn.close()
-        data = [self._row_to_dict(row) for row in rows]
-        return pd.DataFrame(data, columns=self.COLUMNS)
+        return [self._row_to_dict(row) for row in rows]

@@ -1,6 +1,7 @@
+import csv
 import locale
 
-import pandas as pd
+import openpyxl
 from PyQt5.QtWidgets import (
     QMainWindow,
     QListWidget,
@@ -407,26 +408,31 @@ class MainWindow(QMainWindow):
         path, _ = QFileDialog.getOpenFileName(self, "Open File", "", "Excel (*.xlsx)")
         if path:
             try:
-                df = pd.read_excel(path)
+                wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+                ws = wb.active
+                rows_iter = ws.iter_rows(values_only=True)
+                headers = [str(c) for c in next(rows_iter)]
+                rows = [dict(zip(headers, row)) for row in rows_iter]
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Could not read file:\n{e}")
                 return
-            self._do_import(df)
+            self._do_import(rows)
 
     def _import_csv(self):
         path, _ = QFileDialog.getOpenFileName(self, "Open File", "", "CSV (*.csv)")
         if path:
             try:
-                df = pd.read_csv(path)
+                with open(path, newline="", encoding="utf-8") as f:
+                    rows = list(csv.DictReader(f))
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Could not read file:\n{e}")
                 return
-            self._do_import(df)
+            self._do_import(rows)
 
-    def _do_import(self, df):
+    def _do_import(self, rows):
 
         try:
-            inserted, updated, skipped = self.db.import_from_dataframe(df)
+            inserted, updated, skipped = self.db.import_from_rows(rows)
         except ValueError as e:
             QMessageBox.warning(self, "Warning", str(e))
             return
