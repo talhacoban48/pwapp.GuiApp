@@ -278,7 +278,7 @@ class MainWindow(QMainWindow):
         right_layout.addLayout(make_field_row("User Name :", self.username_field, self.username_copy_btn))
         right_layout.addLayout(make_field_row("Email :",     self.email_field,    self.email_copy_btn))
         right_layout.addLayout(make_field_row("Password :",  self.password_field, self.password_copy_btn))
-        right_layout.addLayout(make_field_row("URL :",       self.url_field,      self.url_copy_btn))
+        right_layout.addLayout(make_field_row("Extra Information :",       self.url_field,      self.url_copy_btn))
         right_layout.addLayout(make_field_row("Status :",    self.status_cb, self.status_label))
         right_layout.addSpacing(20)
         right_layout.addLayout(button_row)

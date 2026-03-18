@@ -7,7 +7,6 @@ from PyQt5.QtGui import QFont
 
 from ui.login_dialog import LoginDialog
 from ui.main_window import MainWindow
-from ui.style import get_stylesheet
 from utils.auth_manager import AuthManager
 from utils.local_manager import setup_locale
 
@@ -17,7 +16,6 @@ def main():
     setup_locale()
     app = QApplication(sys.argv)
     app.setFont(QFont("Segoe UI", 10))
-    app.setStyleSheet(get_stylesheet())
 
     basepath = Path.home() / "pwapp"
     basepath.mkdir(parents=True, exist_ok=True)
