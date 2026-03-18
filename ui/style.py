@@ -370,6 +370,21 @@ QPushButton#copyBtn:pressed {
     background-color: #1e3870;
 }
 
+/* ── Cancel search button ────────────────────────────── */
+QPushButton#cancelSearchBtn {
+    background-color: transparent;
+    border: 1px solid #3e4565;
+    border-radius: 5px;
+    padding: 0;
+}
+QPushButton#cancelSearchBtn:hover {
+    border-color: #e05252;
+    background-color: #3a1a1a;
+}
+QPushButton#cancelSearchBtn:pressed {
+    background-color: #4a2020;
+}
+
 /* ── ToolTip ──────────────────────────────────────────── */
 QToolTip {
     background-color: #262b40;

@@ -20,7 +20,8 @@ from PyQt5.QtWidgets import (
     QCheckBox,
 )
 from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtCore import QSize, QTimer
+from PyQt5.QtWidgets import QAction
 from cryptography.fernet import Fernet
 
 from database.db_manager import DatabaseManager
@@ -137,7 +138,31 @@ class MainWindow(QMainWindow):
             b.clicked.connect(handler)
             return b
 
-        # Left panel
+        # Left panel — search
+        self.search_field = QLineEdit()
+        self.search_field.setPlaceholderText("Search…")
+        self.search_field.setMinimumHeight(34)
+        self.search_field.addAction(
+            QAction(QIcon(get_resource_path("assets/search.ico")), "", self.search_field),
+            QLineEdit.LeadingPosition,
+        )
+        self.search_field.textChanged.connect(self._on_search_changed)
+
+        self.cancel_search_btn = QPushButton()
+        self.cancel_search_btn.setIcon(QIcon(get_resource_path("assets/cancel.ico")))
+        self.cancel_search_btn.setIconSize(QSize(14, 14))
+        self.cancel_search_btn.setFixedSize(34, 34)
+        self.cancel_search_btn.setToolTip("Clear search")
+        self.cancel_search_btn.setObjectName("cancelSearchBtn")
+        self.cancel_search_btn.setVisible(False)
+        self.cancel_search_btn.clicked.connect(self.search_field.clear)
+
+        self._search_timer = QTimer(self)
+        self._search_timer.setSingleShot(True)
+        self._search_timer.setInterval(500)
+        self._search_timer.timeout.connect(self._refresh_list)
+
+        # Left panel — list
         self.entries_list = QListWidget()
         self.entries_list.setMinimumHeight(200)
         self.entries_list.setMinimumWidth(200)
@@ -210,10 +235,16 @@ class MainWindow(QMainWindow):
         left_group = QGroupBox()
         left_group.setObjectName("leftPanel")
 
+        search_row = QHBoxLayout()
+        search_row.setSpacing(4)
+        search_row.addWidget(self.search_field)
+        search_row.addWidget(self.cancel_search_btn)
+
         left_layout = QVBoxLayout()
         left_layout.addLayout(
             self._panel_header("assets/apps.ico", "Apps / Sites", "leftPanelTitle")
         )
+        left_layout.addLayout(search_row)
         left_layout.addWidget(self.entries_list)
         left_group.setLayout(left_layout)
 
@@ -270,13 +301,18 @@ class MainWindow(QMainWindow):
     #  Internal helpers                                                    #
     # ------------------------------------------------------------------ #
 
+    def _on_search_changed(self, text: str):
+        self.cancel_search_btn.setVisible(bool(text))
+        self._search_timer.start()
+
     def _refresh_list(self):
         self.entries_list.clear()
+        query = self.search_field.text().lower() if hasattr(self, "search_field") else ""
         rows = self.db.get_all()
         names = [
             "   " + name
             for name, status in rows
-            if self.show_passive or status
+            if (self.show_passive or status) and query in name.lower()
         ]
         try:
             names.sort(key=locale.strxfrm)
