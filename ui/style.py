@@ -83,24 +83,21 @@ QGroupBox {
     background-color: #22263a;
     border: 1px solid #2d3248;
     border-radius: 12px;
-    margin-top: 16px;
+    margin-top: 0px;
     padding: 12px 8px 8px 8px;
 }
-QGroupBox::title {
-    subcontrol-origin: margin;
-    left: 16px;
-    padding: 2px 8px;
-    color: #8b97b8;
+
+QLabel#leftPanelTitle {
+    color: #60a5fa;
     font-weight: bold;
     font-size: 10pt;
-    background-color: #22263a;
-    border-radius: 4px;
+    background-color: transparent;
 }
-QGroupBox#leftPanel::title {
-    color: #60a5fa;
-}
-QGroupBox#rightPanel::title {
+QLabel#rightPanelTitle {
     color: #a78bfa;
+    font-weight: bold;
+    font-size: 10pt;
+    background-color: transparent;
 }
 
 /* ── Labels ───────────────────────────────────────────── */
@@ -355,8 +352,8 @@ QMessageBox QLabel {
     background-color: transparent;
 }
 
-/* ── URL copy button ──────────────────────────────────── */
-QPushButton#urlCopyBtn {
+/* ── Copy buttons ─────────────────────────────────────── */
+QPushButton#copyBtn {
     background-color: transparent;
     color: #8b97b8;
     border: 1px solid #3e4565;
@@ -364,12 +361,12 @@ QPushButton#urlCopyBtn {
     font-size: 14px;
     padding: 0;
 }
-QPushButton#urlCopyBtn:hover {
+QPushButton#copyBtn:hover {
     color: #60a5fa;
     border-color: #60a5fa;
     background-color: #1a2f5a;
 }
-QPushButton#urlCopyBtn:pressed {
+QPushButton#copyBtn:pressed {
     background-color: #1e3870;
 }
 

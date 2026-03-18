@@ -14,14 +14,13 @@ from PyQt5.QtWidgets import (
     QHBoxLayout,
     QGroupBox,
     QWidget,
-    QAction,
     QApplication,
     QMessageBox,
     QFileDialog,
     QCheckBox,
 )
-from PyQt5.QtGui import QIcon, QPixmap, QPainter, QColor, QPen
-from PyQt5.QtCore import Qt, QRect
+from PyQt5.QtGui import QIcon
+from PyQt5.QtCore import Qt, QSize
 from cryptography.fernet import Fernet
 
 from database.db_manager import DatabaseManager
@@ -46,7 +45,7 @@ class MainWindow(QMainWindow):
 
         self.setWindowTitle("Password Manager")
         self.setGeometry(400, 200, 960, 648)
-        self.setWindowIcon(QIcon(get_resource_path("assets/Password.ico")))
+        self.setWindowIcon(QIcon(get_resource_path("assets/favicon.ico")))
 
         self._build_menubar()
         self._build_widgets()
@@ -103,28 +102,20 @@ class MainWindow(QMainWindow):
     #  Helpers                                                             #
     # ------------------------------------------------------------------ #
 
-    @staticmethod
-    def _make_copy_icon() -> QIcon:
-        px = QPixmap(16, 16)
-        px.fill(Qt.transparent)
-        p = QPainter(px)
-        p.setRenderHint(QPainter.Antialiasing)
-        pen = QPen(QColor("#8b97b8"))
-        pen.setWidthF(1.3)
-        p.setPen(pen)
-        p.setBrush(Qt.NoBrush)
-        p.drawRect(QRect(1, 4, 8, 9))   # back page
-        p.drawRect(QRect(5, 1, 8, 9))   # front page
-        p.end()
-        return QIcon(px)
-
-    def _add_copy_action(self, field: QLineEdit):
-        action = QAction(self._make_copy_icon(), "", field)
-        action.setToolTip("Copy")
-        action.triggered.connect(
-            lambda: QApplication.clipboard().setText(field.text())
+    def _make_copy_btn(self, field) -> QPushButton:
+        btn = QPushButton()
+        btn.setIcon(QIcon(get_resource_path("assets/copy.ico")))
+        btn.setIconSize(QSize(16, 16))
+        btn.setFixedSize(26, 26)
+        btn.setToolTip("Copy")
+        btn.setObjectName("copyBtn")
+        is_text_edit = isinstance(field, QTextEdit)
+        btn.clicked.connect(
+            lambda: QApplication.clipboard().setText(
+                field.toPlainText() if is_text_edit else field.text()
+            )
         )
-        field.addAction(action, QLineEdit.TrailingPosition)
+        return btn
 
     # ------------------------------------------------------------------ #
     #  Widgets                                                             #
@@ -160,24 +151,17 @@ class MainWindow(QMainWindow):
         self.username_field = _line_edit()
         self.email_field    = _line_edit()
         self.password_field = _line_edit()
-        for f in (self.app_name_field, self.username_field,
-                  self.email_field, self.password_field):
-            self._add_copy_action(f)
 
         self.url_field = QTextEdit()
         self.url_field.setMinimumWidth(275)
         self.url_field.setMaximumWidth(420)
         self.url_field.setMaximumHeight(150)
 
-        self.url_copy_btn = QPushButton("⎘")
-        self.url_copy_btn.setFixedSize(26, 26)
-        self.url_copy_btn.setToolTip("Copy URL")
-        self.url_copy_btn.setObjectName("urlCopyBtn")
-        self.url_copy_btn.clicked.connect(
-            lambda: QApplication.clipboard().setText(
-                self.url_field.toPlainText()
-            )
-        )
+        self.app_name_copy_btn = self._make_copy_btn(self.app_name_field)
+        self.username_copy_btn = self._make_copy_btn(self.username_field)
+        self.email_copy_btn    = self._make_copy_btn(self.email_field)
+        self.password_copy_btn = self._make_copy_btn(self.password_field)
+        self.url_copy_btn      = self._make_copy_btn(self.url_field)
 
         # Active / Passive toggle
         self.status_cb = QCheckBox()
@@ -205,17 +189,36 @@ class MainWindow(QMainWindow):
     #  Layout                                                              #
     # ------------------------------------------------------------------ #
 
+    @staticmethod
+    def _panel_header(icon_path: str, title: str, object_name: str) -> QHBoxLayout:
+        icon_lbl = QLabel()
+        icon_lbl.setPixmap(
+            QIcon(get_resource_path(icon_path)).pixmap(16, 16)
+        )
+        title_lbl = QLabel(title)
+        title_lbl.setObjectName(object_name)
+        row = QHBoxLayout()
+        row.setContentsMargins(4, 0, 0, 4)
+        row.setSpacing(6)
+        row.addWidget(icon_lbl)
+        row.addWidget(title_lbl)
+        row.addStretch()
+        return row
+
     def _build_layout(self):
         # --- Left group -----------------------------------------------
-        left_group = QGroupBox("Apps / Sites")
+        left_group = QGroupBox()
         left_group.setObjectName("leftPanel")
 
         left_layout = QVBoxLayout()
+        left_layout.addLayout(
+            self._panel_header("assets/apps.ico", "Apps / Sites", "leftPanelTitle")
+        )
         left_layout.addWidget(self.entries_list)
         left_group.setLayout(left_layout)
 
         # --- Right group ----------------------------------------------
-        right_group = QGroupBox("Entry Details")
+        right_group = QGroupBox()
         right_group.setObjectName("rightPanel")
         right_layout = QVBoxLayout()
 
@@ -236,12 +239,15 @@ class MainWindow(QMainWindow):
         gen_field_row.addWidget(self.generated_field)
         gen_field_row.addStretch()
 
+        right_layout.addLayout(
+            self._panel_header("assets/detail.ico", "Entry Details", "rightPanelTitle")
+        )
         right_layout.addStretch()
-        right_layout.addLayout(make_field_row("App Name :",  self.app_name_field))
-        right_layout.addLayout(make_field_row("User Name :", self.username_field))
-        right_layout.addLayout(make_field_row("Email :",     self.email_field))
-        right_layout.addLayout(make_field_row("Password :",  self.password_field))
-        right_layout.addLayout(make_field_row("URL :",       self.url_field, self.url_copy_btn))
+        right_layout.addLayout(make_field_row("App Name :",  self.app_name_field, self.app_name_copy_btn))
+        right_layout.addLayout(make_field_row("User Name :", self.username_field, self.username_copy_btn))
+        right_layout.addLayout(make_field_row("Email :",     self.email_field,    self.email_copy_btn))
+        right_layout.addLayout(make_field_row("Password :",  self.password_field, self.password_copy_btn))
+        right_layout.addLayout(make_field_row("URL :",       self.url_field,      self.url_copy_btn))
         right_layout.addLayout(make_field_row("Status :",    self.status_cb, self.status_label))
         right_layout.addSpacing(20)
         right_layout.addLayout(button_row)

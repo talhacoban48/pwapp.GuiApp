@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import (
     QMessageBox,
 )
 from PyQt5.QtGui import QFont, QIcon
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QSize
 
 from utils.auth_manager import AuthManager
 from utils.resources import get_resource_path
@@ -36,6 +36,13 @@ class ChangePasswordDialog(QDialog):
         layout = QVBoxLayout()
         layout.setSpacing(12)
         layout.setContentsMargins(30, 24, 30, 24)
+
+        icon_lbl = QLabel()
+        icon_lbl.setPixmap(
+            QIcon(get_resource_path("assets/user.ico")).pixmap(QSize(64, 64))
+        )
+        icon_lbl.setAlignment(Qt.AlignCenter)
+        layout.addWidget(icon_lbl)
 
         title = QLabel("Change Master Password")
         title.setFont(QFont("Segoe UI", 13))
