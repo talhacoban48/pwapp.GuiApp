@@ -213,6 +213,31 @@ class DatabaseManager:
         finally:
             conn.close()
 
+    def rekey(self, new_fernet: Fernet):
+        """
+        Re-encrypt all passwords from the current Fernet key to new_fernet.
+        Updates self.fernet on success. Safe to call before writing new auth.json.
+        """
+        conn = self._connect()
+        try:
+            rows = conn.execute(
+                "SELECT appname, password FROM passwords"
+            ).fetchall()
+            for appname, encrypted_pw in rows:
+                if encrypted_pw:
+                    plaintext = decrypt(encrypted_pw, self.fernet)
+                    conn.execute(
+                        "UPDATE passwords SET password=? WHERE appname=?",
+                        (encrypt(plaintext, new_fernet), appname),
+                    )
+            conn.commit()
+            self.fernet = new_fernet
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
     # ------------------------------------------------------------------ #
     #  Export / Import                                                     #
     # ------------------------------------------------------------------ #

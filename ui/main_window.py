@@ -20,16 +20,20 @@ from PyQt5.QtGui import QIcon, QFont
 from cryptography.fernet import Fernet
 
 from database.db_manager import DatabaseManager
+from utils.auth_manager import AuthManager
 from utils.password_gen import generate_password
 from utils.resources import get_resource_path
 from ui.widgets import make_field_row
+from ui.change_password_dialog import ChangePasswordDialog
 
 
 class MainWindow(QMainWindow):
 
-    def __init__(self, fernet: Fernet, first_run: bool = False):
+    def __init__(self, fernet: Fernet, auth_manager: AuthManager,
+                 first_run: bool = False):
         super().__init__()
 
+        self.auth_manager = auth_manager
         self.db = DatabaseManager(fernet=fernet)
         if first_run:
             self.db.migrate_to_encrypted()
@@ -52,21 +56,36 @@ class MainWindow(QMainWindow):
     def _build_menubar(self):
         bar = self.menuBar()
 
+        # File — export & import
         file_menu = bar.addMenu("File")
-        file_menu.addAction("Save as Excel").triggered.connect(
-            lambda: self._export_excel()
-        )
-        file_menu.addAction("Save as CSV").triggered.connect(
-            lambda: self._export_csv()
+
+        act = file_menu.addAction("Save as Excel")
+        act.setShortcut("Ctrl+E")
+        act.triggered.connect(self._export_excel)
+
+        act = file_menu.addAction("Save as CSV")
+        act.setShortcut("Ctrl+Shift+E")
+        act.triggered.connect(self._export_csv)
+
+        file_menu.addSeparator()
+
+        act = file_menu.addAction("Import Excel")
+        act.setShortcut("Ctrl+I")
+        act.triggered.connect(self._import_excel)
+
+        act = file_menu.addAction("Import CSV")
+        act.setShortcut("Ctrl+Shift+I")
+        act.triggered.connect(self._import_csv)
+
+        # Settings
+        settings_menu = bar.addMenu("Settings")
+        settings_menu.addAction("Change Master Password").triggered.connect(
+            self._on_change_password
         )
 
-        import_menu = bar.addMenu("Import")
-        import_menu.addAction("Import Excel").triggered.connect(
-            lambda: self._import_excel()
-        )
-        import_menu.addAction("Import CSV").triggered.connect(
-            lambda: self._import_csv()
-        )
+        # Help
+        help_menu = bar.addMenu("Help")
+        help_menu.addAction("About").triggered.connect(self._show_about)
 
     # ------------------------------------------------------------------ #
     #  Widgets                                                             #
@@ -451,3 +470,31 @@ class MainWindow(QMainWindow):
         if not parts:
             parts.append("No changes made.")
         QMessageBox.information(self, "Import Complete", "\n".join(parts))
+
+    # ------------------------------------------------------------------ #
+    #  Slots — settings & help                                            #
+    # ------------------------------------------------------------------ #
+
+    def _on_change_password(self):
+        dialog = ChangePasswordDialog(self.auth_manager, parent=self)
+        if dialog.exec_() != dialog.Accepted:
+            return
+        try:
+            new_fernet, pending_config = self.auth_manager.prepare_new_key(
+                dialog.new_password
+            )
+            self.db.rekey(new_fernet)
+            self.auth_manager.commit_key(pending_config)
+            QMessageBox.information(self, "Success",
+                                    "Master password changed successfully.")
+        except Exception as e:
+            QMessageBox.critical(self, "Error",
+                                 f"Failed to change master password:\n{e}")
+
+    def _show_about(self):
+        QMessageBox.about(
+            self, "About Password Manager",
+            "Password Manager v1.0\n\n"
+            "Local password manager with AES-256 encryption.\n"
+            "Your data never leaves your machine.",
+        )

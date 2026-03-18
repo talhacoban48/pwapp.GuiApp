@@ -57,3 +57,22 @@ class AuthManager:
 
         fernet = make_fernet(master_password, salt)
         return fernet if check_canary(canary, fernet) else None
+
+    def prepare_new_key(self, new_password: str) -> tuple[Fernet, dict]:
+        """
+        Derive a new Fernet key from new_password without writing to disk.
+        Returns (new_fernet, pending_config).
+        Call commit_key(pending_config) after re-encrypting the database.
+        """
+        salt   = generate_salt()
+        fernet = make_fernet(new_password, salt)
+        canary = make_canary(fernet)
+        config = {
+            "salt":   base64.b64encode(salt).decode(),
+            "canary": canary,
+        }
+        return fernet, config
+
+    def commit_key(self, config: dict):
+        """Write a prepared key config to disk (call after rekey succeeds)."""
+        self._config_path.write_text(json.dumps(config, indent=2), encoding="utf-8")

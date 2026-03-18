@@ -43,7 +43,7 @@ def main():
         sys.exit(0)
 
     fernet = dialog.fernet
-    window = MainWindow(fernet=fernet, first_run=first_run)
+    window = MainWindow(fernet=fernet, auth_manager=auth, first_run=first_run)
     sys.exit(app.exec_())
 
 
