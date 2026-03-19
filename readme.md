@@ -2,6 +2,13 @@
 
 A lightweight desktop password manager built with PyQt5. All passwords are encrypted with a master password — nothing is stored in plaintext.
 
+
+
+## Download
+
+**[PasswordManagerSetup_1.0.0.exe](https://github.com/talhacoban48/pwapp.GuiApp/releases/download/v1.0.0/PasswordManagerSetup_1.0.0.exe)**
+
+
 ---
 
 ## Features
